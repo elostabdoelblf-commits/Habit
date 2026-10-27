@@ -1,0 +1,7 @@
+{
+  "appId": "com.habitos.app",
+  "appName": "HABIT OS",
+  "webDir": "www",
+  "backgroundColor": "#030610",
+  "android": { "allowMixedContent": false }
+}
