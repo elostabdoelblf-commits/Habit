@@ -1,0 +1,7 @@
+*,*::before,*::after{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+*,*::before,*::after{animation-iteration-count:1!important;transition-duration:.12s!important}
+html,body{-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+button,a,input,select,textarea,nav,nav *{touch-action:manipulation}
+html body .card{box-shadow:0 1px 3px rgba(0,0,0,.18)!important}
+nav{box-shadow:0 4px 14px rgba(0,0,0,.25)!important}
+.top{box-shadow:none!important}
