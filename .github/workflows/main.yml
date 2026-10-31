@@ -34,15 +34,62 @@ jobs:
         PK=$APP/java/com/habitmentality/app
         test -f $PK/MainActivity.java
         mkdir -p $PK $APP/res/layout $APP/res/xml $APP/res/drawable
-        cp widget/WidgetBridgePlugin.java widget/HabitWidget.java $PK/
+        cp widget/WidgetBridgePlugin.java widget/HabitWidget.java widget/HmWidgets.java $PK/
         cp widget/habit_widget.xml $APP/res/layout/
         cp widget/habit_widget_info.xml $APP/res/xml/
         cp widget/widget_bg.xml $APP/res/drawable/
+        cat > $APP/res/layout/hm_widget_img.xml <<'EOF'
+        <?xml version="1.0" encoding="utf-8"?>
+        <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+            android:id="@+id/hm_root"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+            <ImageView
+                android:id="@+id/hm_img"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="fitXY" />
+        </FrameLayout>
+        EOF
+        cat > $APP/res/xml/hm_info_2x2.xml <<'EOF'
+        <?xml version="1.0" encoding="utf-8"?>
+        <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+            android:minWidth="110dp"
+            android:minHeight="110dp"
+            android:updatePeriodMillis="1800000"
+            android:initialLayout="@layout/hm_widget_img"
+            android:resizeMode="horizontal|vertical"
+            android:widgetCategory="home_screen" />
+        EOF
+        cat > $APP/res/xml/hm_info_4x2.xml <<'EOF'
+        <?xml version="1.0" encoding="utf-8"?>
+        <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+            android:minWidth="250dp"
+            android:minHeight="110dp"
+            android:updatePeriodMillis="1800000"
+            android:initialLayout="@layout/hm_widget_img"
+            android:resizeMode="horizontal|vertical"
+            android:widgetCategory="home_screen" />
+        EOF
+        cat > $APP/res/xml/hm_info_4x3.xml <<'EOF'
+        <?xml version="1.0" encoding="utf-8"?>
+        <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+            android:minWidth="250dp"
+            android:minHeight="180dp"
+            android:updatePeriodMillis="1800000"
+            android:initialLayout="@layout/hm_widget_img"
+            android:resizeMode="horizontal|vertical"
+            android:widgetCategory="home_screen" />
+        EOF
+        cat > /tmp/rcv2.xml <<'EOF'
+        <receiver android:name=".HmWidgets$Dash" android:exported="true"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/hm_info_4x3" /></receiver><receiver android:name=".HmWidgets$Progress" android:exported="true"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/hm_info_2x2" /></receiver><receiver android:name=".HmWidgets$Week" android:exported="true"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/hm_info_4x2" /></receiver><receiver android:name=".HmWidgets$Lst" android:exported="true"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/hm_info_4x2" /></receiver><receiver android:name=".HmWidgets$Month" android:exported="true"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/hm_info_4x2" /></receiver>
+        EOF
         sed -i 's|public class MainActivity extends BridgeActivity {}|public class MainActivity extends BridgeActivity { @Override public void onCreate(android.os.Bundle b) { registerPlugin(WidgetBridgePlugin.class); super.onCreate(b); } }|' $PK/MainActivity.java
         grep -q WidgetBridgePlugin $PK/MainActivity.java || { echo "ERROR: MainActivity.java not patched"; cat $PK/MainActivity.java; exit 1; }
-        RCV=$(cat widget/receiver.xml)
+        RCV=$(cat widget/receiver.xml /tmp/rcv2.xml | tr -d '\n\r')
         sed -i "s|</application>|$RCV</application>|" $APP/AndroidManifest.xml
-        grep -q HabitWidget $APP/AndroidManifest.xml || { echo "ERROR: manifest not patched"; exit 1; }
+        grep -q 'HmWidgets' $APP/AndroidManifest.xml || { echo "ERROR: manifest not patched"; exit 1; }
+        grep -q 'HabitWidget' $APP/AndroidManifest.xml || { echo "ERROR: manifest not patched"; exit 1; }
     - run: npx capacitor-assets generate --android --assetPath assets
     - run: npx cap sync android
     - run: cd android && chmod +x gradlew && ./gradlew assembleDebug
