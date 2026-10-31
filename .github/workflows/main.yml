@@ -90,6 +90,13 @@ jobs:
         sed -i "s|</application>|$RCV</application>|" $APP/AndroidManifest.xml
         grep -q 'HmWidgets' $APP/AndroidManifest.xml || { echo "ERROR: manifest not patched"; exit 1; }
         grep -q 'HabitWidget' $APP/AndroidManifest.xml || { echo "ERROR: manifest not patched"; exit 1; }
+    - name: Add microphone permission
+      run: |
+        set -e
+        M=android/app/src/main/AndroidManifest.xml
+        grep -q RECORD_AUDIO $M || sed -i 's|<application|<uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <application|' $M
+        grep -q RECORD_AUDIO $M || { echo "ERROR: mic permission not added"; exit 1; }
+        grep -n 'RECORD_AUDIO\|MODIFY_AUDIO_SETTINGS' $M
     - run: npx capacitor-assets generate --android --assetPath assets
     - run: npx cap sync android
     - run: cd android && chmod +x gradlew && ./gradlew assembleDebug
