@@ -23,6 +23,7 @@ jobs:
     - run: convert /tmp/src.png -filter Lanczos -resize 1024x1024! assets/icon-only.png && convert /tmp/src.png -filter Lanczos -resize 800x800 -background none -gravity center -extent 1024x1024 assets/icon-foreground.png && convert -size 1024x1024 xc:'#030610' assets/icon-background.png
     - run: jq '.appName="HABIT MENTALITY" | .appId="com.habitmentality.app"' capacitor.config.json > cc.json && mv cc.json capacitor.config.json
     - run: npm install && npm install --legacy-peer-deps @capgo/capacitor-social-login@6
+    - run: npm install --legacy-peer-deps @capacitor-community/speech-recognition@6 || echo 'speech plugin skipped'
     - run: npx cap add android
     - run: sed -i 's/minSdkVersion = [0-9]*/minSdkVersion = 24/' android/variables.gradle
     - run: cp debug.keystore android/app/debug.keystore && sed -i '0,/^android {/s//android { signingConfigs { debug { storeFile file("debug.keystore"); storePassword "android"; keyAlias "androiddebugkey"; keyPassword "android" } }/' android/app/build.gradle && grep -n 'signingConfigs' android/app/build.gradle
@@ -96,6 +97,7 @@ jobs:
         M=android/app/src/main/AndroidManifest.xml
         grep -q RECORD_AUDIO $M || sed -i 's|<application|<uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n    <application|' $M
         grep -q RECORD_AUDIO $M || { echo "ERROR: mic permission not added"; exit 1; }
+        grep -q RecognitionService $M || sed -i 's|<application|<queries><intent><action android:name="android.speech.RecognitionService" /></intent></queries>\n    <application|' $M
         grep -n 'RECORD_AUDIO\|MODIFY_AUDIO_SETTINGS' $M
     - run: npx capacitor-assets generate --android --assetPath assets
     - run: npx cap sync android
