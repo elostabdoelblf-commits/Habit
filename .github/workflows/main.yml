@@ -1,1 +1,53 @@
-{"name":"Build APK","on":{"workflow_dispatch":{},"push":{"branches":["main","master"]}},"jobs":{"build":{"runs-on":"ubuntu-latest","steps":[{"uses":"actions/checkout@v4"},{"uses":"actions/setup-node@v4","with":{"node-version":20}},{"uses":"actions/setup-java@v4","with":{"distribution":"temurin","java-version":17}},{"run":"sudo apt-get update && sudo apt-get install -y imagemagick"},{"run":"mkdir -p www assets && cp index.html www/index.html && cp perf.css native-auth.js www/ && sed -i 's|</head>|<link rel=\"stylesheet\" href=\"perf.css\"></head>|; s|<head>|<head><script src=\"native-auth.js\"></script>|' www/index.html"},{"run":"SRC=$(find . -name icon-only.png -not -path '*/node_modules/*' -not -path './assets/*' | head -1); echo \"Using: $SRC\"; cp \"$SRC\" /tmp/src.png; identify /tmp/src.png"},{"run":"convert /tmp/src.png -filter Lanczos -resize 1024x1024! assets/icon-only.png && convert /tmp/src.png -filter Lanczos -resize 800x800 -background none -gravity center -extent 1024x1024 assets/icon-foreground.png && convert -size 1024x1024 xc:'#030610' assets/icon-background.png"},{"run":"jq '.appName=\"HABIT MENTALITY\" | .appId=\"com.habitmentality.app\"' capacitor.config.json > cc.json && mv cc.json capacitor.config.json"},{"run":"npm install && npm install --legacy-peer-deps @capgo/capacitor-social-login@6"},{"run":"npx cap add android"},{"run":"sed -i 's/minSdkVersion = [0-9]*/minSdkVersion = 24/' android/variables.gradle"},{"run":"cp debug.keystore android/app/debug.keystore && sed -i '0,/^android {/s//android { signingConfigs { debug { storeFile file(\"debug.keystore\"); storePassword \"android\"; keyAlias \"androiddebugkey\"; keyPassword \"android\" } }/' android/app/build.gradle && grep -n 'signingConfigs' android/app/build.gradle"},{"run":"sed -i 's|<string name=\"title_activity_main\">[^<]*</string>|<string name=\"title_activity_main\">H.M</string>|' android/app/src/main/res/values/strings.xml"},{"run":"npx capacitor-assets generate --android --assetPath assets"},{"run":"npx cap sync android"},{"run":"cd android && chmod +x gradlew && ./gradlew assembleDebug"},{"run":"$ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)/apksigner verify --print-certs android/app/build/outputs/apk/debug/app-debug.apk | grep -i sha-1 ; true"},{"uses":"actions/upload-artifact@v4","with":{"name":"HABIT-MENTALITY-apk","path":"android/app/build/outputs/apk/debug/app-debug.apk"}}]}}}
+name: Build APK
+'on':
+  workflow_dispatch: {}
+  push:
+    branches:
+    - main
+    - master
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 20
+    - uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: 17
+    - run: sudo apt-get update && sudo apt-get install -y imagemagick
+    - run: mkdir -p www assets && cp index.html www/index.html && cp perf.css native-auth.js www/ && sed -i 's|</head>|<link rel="stylesheet" href="perf.css"></head>|; s|<head>|<head><script src="native-auth.js"></script>|' www/index.html
+    - run: 'SRC=$(find . -name icon-only.png -not -path ''*/node_modules/*'' -not -path ''./assets/*'' | head -1); echo "Using: $SRC"; cp "$SRC" /tmp/src.png; identify /tmp/src.png'
+    - run: convert /tmp/src.png -filter Lanczos -resize 1024x1024! assets/icon-only.png && convert /tmp/src.png -filter Lanczos -resize 800x800 -background none -gravity center -extent 1024x1024 assets/icon-foreground.png && convert -size 1024x1024 xc:'#030610' assets/icon-background.png
+    - run: jq '.appName="HABIT MENTALITY" | .appId="com.habitmentality.app"' capacitor.config.json > cc.json && mv cc.json capacitor.config.json
+    - run: npm install && npm install --legacy-peer-deps @capgo/capacitor-social-login@6
+    - run: npx cap add android
+    - run: sed -i 's/minSdkVersion = [0-9]*/minSdkVersion = 24/' android/variables.gradle
+    - run: cp debug.keystore android/app/debug.keystore && sed -i '0,/^android {/s//android { signingConfigs { debug { storeFile file("debug.keystore"); storePassword "android"; keyAlias "androiddebugkey"; keyPassword "android" } }/' android/app/build.gradle && grep -n 'signingConfigs' android/app/build.gradle
+    - run: sed -i 's|<string name="title_activity_main">[^<]*</string>|<string name="title_activity_main">H.M</string>|' android/app/src/main/res/values/strings.xml
+    - name: Add home-screen widget
+      run: |
+        set -e
+        APP=android/app/src/main
+        PK=$APP/java/com/habitmentality/app
+        test -f $PK/MainActivity.java
+        mkdir -p $PK $APP/res/layout $APP/res/xml $APP/res/drawable
+        cp widget/WidgetBridgePlugin.java widget/HabitWidget.java $PK/
+        cp widget/habit_widget.xml $APP/res/layout/
+        cp widget/habit_widget_info.xml $APP/res/xml/
+        cp widget/widget_bg.xml $APP/res/drawable/
+        sed -i 's|public class MainActivity extends BridgeActivity {}|public class MainActivity extends BridgeActivity { @Override public void onCreate(android.os.Bundle b) { registerPlugin(WidgetBridgePlugin.class); super.onCreate(b); } }|' $PK/MainActivity.java
+        grep -q WidgetBridgePlugin $PK/MainActivity.java || { echo "ERROR: MainActivity.java not patched"; cat $PK/MainActivity.java; exit 1; }
+        RCV=$(cat widget/receiver.xml)
+        sed -i "s|</application>|$RCV</application>|" $APP/AndroidManifest.xml
+        grep -q HabitWidget $APP/AndroidManifest.xml || { echo "ERROR: manifest not patched"; exit 1; }
+    - run: npx capacitor-assets generate --android --assetPath assets
+    - run: npx cap sync android
+    - run: cd android && chmod +x gradlew && ./gradlew assembleDebug
+    - run: $ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | sort -V | tail -1)/apksigner verify --print-certs android/app/build/outputs/apk/debug/app-debug.apk | grep -i sha-1 ; true
+    - uses: actions/upload-artifact@v4
+      with:
+        name: HABIT-MENTALITY-apk
+        path: android/app/build/outputs/apk/debug/app-debug.apk
